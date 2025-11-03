@@ -30,23 +30,23 @@
 #   - Dark_Gray, Light_Red, Light_Green, Yellow, Light_Blue, Light_Purple, Light_Cyan, White
 #   - nc: No color (reset to default)
 
-readonly Black='\033[0;30m'        # Dark black
-readonly Red='\033[0;31m'          # Dark red
-readonly Green='\033[0;32m'        # Dark green
-readonly Brown_Orange='\033[0;33m' # Dark yellow/brown
-readonly Blue='\033[0;34m'         # Dark blue
-readonly Purple='\033[0;35m'       # Dark purple
-readonly Cyan='\033[0;36m'         # Dark cyan
-readonly Light_Gray='\033[0;37m'   # Light gray
-readonly Dark_Gray='\033[1;30m'    # Bright black
-readonly Light_Red='\033[1;31m'    # Bright red
-readonly Light_Green='\033[1;32m'  # Bright green
-readonly Yellow='\033[1;33m'       # Bright yellow
-readonly Light_Blue='\033[1;34m'   # Bright blue
-readonly Light_Purple='\033[1;35m' # Bright purple
-readonly Light_Cyan='\033[1;36m'   # Bright cyan
-readonly White='\033[1;37m'        # Bright white
-readonly nc='\033[0m'              # No color (reset)
+: "${Black:=\033[0;30m}";        readonly Black        # Dark black
+: "${Red:=\033[0;31m}";          readonly Red          # Dark red
+: "${Green:=\033[0;32m}";        readonly Green        # Dark green
+: "${Brown_Orange:=\033[0;33m}"; readonly Brown_Orange # Dark yellow/brown
+: "${Blue:=\033[0;34m}";         readonly Blue         # Dark blue
+: "${Purple:=\033[0;35m}";       readonly Purple       # Dark purple
+: "${Cyan:=\033[0;36m}";         readonly Cyan         # Dark cyan
+: "${Light_Gray:=\033[0;37m}";   readonly Light_Gray   # Light gray
+: "${Dark_Gray:=\033[1;30m}";    readonly Dark_Gray    # Bright black
+: "${Light_Red:=\033[1;31m}";    readonly Light_Red    # Bright red
+: "${Light_Green:=\033[1;32m}";  readonly Light_Green  # Bright green
+: "${Yellow:=\033[1;33m}";       readonly Yellow       # Bright yellow
+: "${Light_Blue:=\033[1;34m}";   readonly Light_Blue   # Bright blue
+: "${Light_Purple:=\033[1;35m}"; readonly Light_Purple # Bright purple
+: "${Light_Cyan:=\033[1;36m}";   readonly Light_Cyan   # Bright cyan
+: "${White:=\033[1;37m}";        readonly White        # Bright white
+: "${nc:=\033[0m}";              readonly nc           # No color (reset)
 
 # =============================================================================
 # NAVIGATION UTILITIES
