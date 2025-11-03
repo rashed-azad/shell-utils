@@ -336,3 +336,26 @@ alias fgrep="fgrep --color=auto"
 # Add system directories to PATH for administrative commands
 # This ensures that system administration tools are available
 export PATH="$PATH:/sbin:/usr/sbin:usr/local/sbin:"
+
+#
+# prt = "process realtime"
+#
+# Shows all user-space tasks + all threads
+# with their scheduling class and priorities.
+#
+# columns:
+#   pid     = process id
+#   tid     = thread id (lightweight process)
+#   cls     = scheduler class
+#              TS = normal (SCHED_OTHER)
+#              FF = realtime FIFO
+#              RR = realtime RoundRobin
+#              DL = realtime Deadline
+#   pri     = internal kernel priority
+#   rtprio  = realtime priority 0..99 (only for FF/RR)
+#   cmd     = command name
+#
+# note: kernel tasks are always shown with [name]
+#       we filter them out because we only care about user processes.
+#
+alias prt='ps -eLo pid,tid,cls,pri,rtprio,cmd | grep -v "\["'
