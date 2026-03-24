@@ -359,3 +359,6 @@ export PATH="$PATH:/sbin:/usr/sbin:usr/local/sbin:"
 #       we filter them out because we only care about user processes.
 #
 alias prt='ps -eLo pid,tid,cls,pri,rtprio,cmd | grep -v "\["'
+
+# Load Tor and privacy browser utilities (macOS only)
+[[ "$(uname)" == "Darwin" ]] && source "$(dirname "${BASH_SOURCE[0]}")/.tor.sh"
