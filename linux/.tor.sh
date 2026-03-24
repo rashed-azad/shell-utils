@@ -56,7 +56,7 @@ tor_browser() {
     --enable-native-gpu-memory-buffers \
     --use-gl=angle \
     --use-angle=metal \
-    "https://check.torproject.org" &
+    "https://check.torproject.org/api/ip" &
   CHROMIUM_PID=$!
 
   # Ctrl+C handler
