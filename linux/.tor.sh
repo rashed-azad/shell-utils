@@ -1,7 +1,6 @@
 #!/bin/bash
 
 tor_browser() {
-  # ── Tor config ────────────────────────────────────────────────────────────────
   TOR_CONFIG="$HOME/.config/tor-stream/torrc"
   mkdir -p "$(dirname "$TOR_CONFIG")"
   cat > "$TOR_CONFIG" << 'EOF'
@@ -9,10 +8,17 @@ tor_browser() {
 NumEntryGuards 4
 NumDirectoryGuards 3
 GuardLifetime 2 months
-MaxCircuitDirtiness 600
-NewCircuitPeriod 120
+MaxCircuitDirtiness 120
+NewCircuitPeriod 60
 CircuitBuildTimeout 10
 LearnCircuitBuildTimeout 1
+
+# Stability — rotate away from slow circuits quickly
+MaxClientCircuitsPending 32
+CircuitStreamTimeout 15
+SocksTimeout 15
+ConnTimeout 30
+ConnectionPadding 1
 
 # Bandwidth (0 = unlimited)
 RelayBandwidthRate 0
@@ -26,12 +32,15 @@ KISTSchedRunInterval 10
 # Isolated SOCKS port
 SocksPort 9050 IsolateDestAddr IsolateDestPort
 
-# Optional: pin to faster exit countries (uncomment to enable)
+# Pin to stable high-bandwidth exits
 StrictNodes 1
-ExitNodes {de},{nl},{se},{ch}
+ExitNodes {de},{nl},{se},{ch},{fi},{no}
+EntryNodes {de},{nl},{se},{ch},{fi},{no}
+ExcludeNodes {ru},{cn},{ir},{kp}
+ExcludeExitNodes {ru},{cn},{ir},{kp}
 EOF
 
-  # ── Graceful shutdown ─────────────────────────────────────────────────────────
+  # ── Graceful shutdown ────────────────────────────────────────────────────────
   cleanup() {
     echo "Shutting down..."
 
