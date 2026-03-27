@@ -8,7 +8,7 @@ tor_browser() {
 NumEntryGuards 4
 NumDirectoryGuards 3
 GuardLifetime 2 months
-MaxCircuitDirtiness 120
+MaxCircuitDirtiness 300
 NewCircuitPeriod 60
 CircuitBuildTimeout 10
 LearnCircuitBuildTimeout 1
@@ -17,7 +17,6 @@ LearnCircuitBuildTimeout 1
 MaxClientCircuitsPending 32
 CircuitStreamTimeout 15
 SocksTimeout 15
-ConnTimeout 30
 ConnectionPadding 1
 
 # Bandwidth (0 = unlimited)
@@ -33,9 +32,8 @@ KISTSchedRunInterval 10
 SocksPort 9050 IsolateDestAddr IsolateDestPort
 
 # Pin to stable high-bandwidth exits
-StrictNodes 1
+StrictNodes 0
 ExitNodes {de},{nl},{se},{ch},{fi},{no}
-EntryNodes {de},{nl},{se},{ch},{fi},{no}
 ExcludeNodes {ru},{cn},{ir},{kp}
 ExcludeExitNodes {ru},{cn},{ir},{kp}
 EOF
@@ -137,4 +135,43 @@ EOF
 
   # Wait here until Ctrl+C triggers cleanup
   wait
+}
+
+# ── dl ────────────────────────────────────────────────────────────────────────
+# Downloads a file using yt-dlp routed through the Tor SOCKS5 proxy on
+# 127.0.0.1:9050. Supports any URL that yt-dlp handles (video sites, direct
+# MP4/MKV links, etc). Uses 16 concurrent fragments for faster downloads and
+# resumes interrupted downloads automatically.
+#
+# Note: Tor must already be running (e.g. via tor_browser or `tor` standalone)
+# before calling dl, otherwise the proxy connection will fail.
+#
+# Usage:
+#   dl "output filename" "url"
+#
+# Example:
+#   dl "video.mp4" "https://example.com/video.mp4"
+#
+# Dependencies:
+#   tor        — brew install tor  /  sudo port install tor (must be running on port 9050)
+#   yt-dlp     — brew install yt-dlp  /  sudo port install yt-dlp
+# ─────────────────────────────────────────────────────────────────────────────
+dl() {
+  if [[ -z "$1" || -z "$2" ]]; then
+    echo "Usage: dl \"output filename\" \"url\""
+    return 1
+  fi
+
+  yt-dlp \
+    --socket-timeout 120 \
+    --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36" \
+    --add-headers "Accept-Language:en-US,en;q=0.9" \
+    --add-headers "Accept:*/*" \
+    --proxy socks5://127.0.0.1:9050 \
+    --concurrent-fragments 16 \
+    --progress \
+    --newline \
+    --continue \
+    --verbose \
+    -o "$1" "$2"
 }
