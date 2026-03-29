@@ -200,6 +200,7 @@ EOF
 # Dependencies:
 #   tor    — brew install tor    / sudo port install tor    (must be running on port 9050)
 #   yt-dlp — brew install yt-dlp / sudo port install yt-dlp
+#   curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
 # ─────────────────────────────────────────────────────────────────────────────
 dl() {
     if [[ -z "$1" || -z "$2" ]]; then
