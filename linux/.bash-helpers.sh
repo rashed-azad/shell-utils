@@ -362,3 +362,6 @@ alias prt='ps -eLo pid,tid,cls,pri,rtprio,cmd | grep -v "\["'
 
 # Load Tor and privacy browser utilities (macOS only)
 [[ "$(uname)" == "Darwin" ]] && source "$(dirname "${BASH_SOURCE[0]}")/.tor.sh"
+
+# Load Tor and privacy browser utilities (linux only)
+[[ "$(uname)" == "Linux" ]] && source "$(dirname "${BASH_SOURCE[0]}")/.tor_linux.sh"

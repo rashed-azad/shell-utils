@@ -1,5 +1,7 @@
 #!/bin/bash
 
+CHROMIUM_BIN="$HOME/install/ungoogled-chromium/chrome"
+
 tor_browser() {
     TOR_CONFIG="$HOME/.config/tor-stream/torrc"
     mkdir -p "$(dirname "$TOR_CONFIG")"
@@ -128,7 +130,8 @@ EOF
 
     # ── Launch Ungoogled Chromium ──────────────────────────────────────────────
     echo "Launching Chromium..."
-    /Applications/Chromium.app/Contents/MacOS/Chromium \
+
+    "$CHROMIUM_BIN" \
         \
         `# ── Proxy / network ──────────────────────────────────` \
         --proxy-server="socks5://127.0.0.1:9050" \
@@ -170,12 +173,12 @@ EOF
         --ignore-gpu-blocklist \
         --enable-native-gpu-memory-buffers \
         --use-gl=angle \
-        --use-angle=metal \
+        --use-angle=gl \
         --num-raster-threads=4 \
         --high-dpi-support=1 \
         \
         `# ── Feature flags ────────────────────────────────────` \
-        --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization,BlockInsecurePrivateNetworkRequests \
+        --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization,BlockInsecurePrivateNetworkRequests,UseOzonePlatform \
         --disable-features=NetworkPrediction,Prerender2,PreloadMediaEngagementData,UseChromeOSDirectVideoDecoder \
         \
         "https://check.torproject.org/" &
@@ -202,9 +205,8 @@ EOF
 #   dl "video.mp4" "https://example.com/video.mp4"
 #
 # Dependencies:
-#   tor    — brew install tor    / sudo port install tor    (must be running on port 9050)
-#   yt-dlp — brew install yt-dlp / sudo port install yt-dlp
-#   curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+#   tor    — sudo apt install tor
+#   yt-dlp — curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
 # ─────────────────────────────────────────────────────────────────────────────
 dl() {
     if [[ -z "$1" || -z "$2" ]]; then
