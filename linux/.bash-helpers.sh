@@ -329,14 +329,6 @@ alias grep="grep --color=auto"
 alias egrep="egrep --color=auto"
 alias fgrep="fgrep --color=auto"
 
-# =============================================================================
-# ENVIRONMENT CONFIGURATION
-# =============================================================================
-
-# Add system directories to PATH for administrative commands
-# This ensures that system administration tools are available
-export PATH="$PATH:/sbin:/usr/sbin:usr/local/sbin:"
-
 #
 # prt = "process realtime"
 #
@@ -359,6 +351,18 @@ export PATH="$PATH:/sbin:/usr/sbin:usr/local/sbin:"
 #       we filter them out because we only care about user processes.
 #
 alias prt='ps -eLo pid,tid,cls,pri,rtprio,cmd | grep -v "\["'
+
+# =============================================================================
+# ENVIRONMENT CONFIGURATION
+# =============================================================================
+
+# Add system directories to PATH for administrative commands
+# This ensures that system administration tools are available
+export PATH="$PATH:/sbin:/usr/sbin:usr/local/sbin:"
+export PATH="$HOME/.local/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # Load Tor and privacy browser utilities (macOS only)
 [[ "$(uname)" == "Darwin" ]] && source "$(dirname "${BASH_SOURCE[0]}")/.tor.sh"
