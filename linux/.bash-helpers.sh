@@ -135,6 +135,25 @@ gitm() {
   git submodule foreach --recursive "$@"
 }
 
+# Git alias: 'git each' — equivalent to gitm, works in any shell
+#
+# USAGE:
+#   git each <git_command>
+#
+# EXAMPLES:
+#   git each status          # Check status of all submodules
+#   git each pull            # Pull latest changes in all submodules
+#   git each checkout main   # Switch all submodules to main branch
+#
+# DESCRIPTION:
+#   Git built-in alias for running a git command across all submodules
+#   recursively. Unlike the shell function 'gitm', this works in any
+#   shell environment where git is available.
+#
+# SETUP:
+#   git config --global alias.each 'submodule foreach --recursive'
+git config --global alias.each 'submodule foreach --recursive'
+
 # Delete local git branches that no longer exist on the remote repository
 # 
 # USAGE:
