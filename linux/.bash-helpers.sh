@@ -150,9 +150,9 @@ gitm() {
 #   recursively. Unlike the shell function 'gitm', this works in any
 #   shell environment where git is available.
 #
-# SETUP:
-#   git config --global alias.each 'submodule foreach --recursive'
-git config --global alias.each 'submodule foreach --recursive'
+# SETUP (one-time, idempotent — safe to run on every shell init):
+#   Only writes to ~/.gitconfig if the alias is not already defined.
+git config --global --get alias.each >/dev/null 2>&1 || git config --global alias.each 'submodule foreach --recursive'
 
 # Delete local git branches that no longer exist on the remote repository
 # 
