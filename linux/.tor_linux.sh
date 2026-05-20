@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CHROMIUM_BIN="$HOME/install/ungoogled-chromium/chrome"
+eval "CHROMIUM_BIN=$(alias browser | cut -d"'" -f2)"
 
 tor_browser() {
     TOR_CONFIG="$HOME/.config/tor-stream/torrc"
