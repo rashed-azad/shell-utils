@@ -379,6 +379,7 @@ alias prt='ps -eLo pid,tid,cls,pri,rtprio,cmd | grep -v "\["'
 # This ensures that system administration tools are available
 export PATH="$PATH:/sbin:/usr/sbin:usr/local/sbin:"
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/bin:$PATH"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
