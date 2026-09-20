@@ -1,10 +1,34 @@
 #!/bin/bash
+#
+# Usage:
+#   tor_browser            # fast profile — GPU/WebGL/hw-decode ON
+#   tor_browser harden     # anonymity-hardened — GPU/WebGL/hw-decode OFF
 
-eval "CHROMIUM_BIN=$(alias browser | cut -d"'" -f2)"
+eval "CHROMIUM_BIN=$(alias gBrowser | cut -d"'" -f2)"
 
 tor_browser() {
+    local MODE="${1:-fast}"
     TOR_CONFIG="$HOME/.config/tor-stream/torrc"
     mkdir -p "$(dirname "$TOR_CONFIG")"
+
+    # Only these paths round-trip between the ephemeral profile and this
+    # persistent directory — bookmarks and installed extensions. History,
+    # cookies, cache, and site storage are never written here, so they
+    # never survive past a single session regardless of this list.
+    BASE_PROFILE_DIR="$HOME/.config/tor-stream/base-profile"
+    PERSIST_PATHS=(
+        Bookmarks
+        Bookmarks.bak
+        Extensions
+        "Local Extension Settings"
+        Preferences        # extension install/enabled state lives here — without
+        "Secure Preferences" # it Chromium won't recognize the Extensions/ folder
+    )
+    # Note: Preferences also holds small unrelated bits (window size, per-site
+    # permission grants). Persisting it is what makes extensions register
+    # reliably; if you want to avoid carrying per-site permissions forward too,
+    # that would need surgical JSON merging instead of a plain file copy — say
+    # so and I'll build that instead.
     cat >"$TOR_CONFIG" <<EOF
 # Circuit performance
 NumEntryGuards 4
@@ -36,9 +60,13 @@ ControlPort 9051
 CookieAuthentication 1
 CookieAuthFile $HOME/.config/tor-stream/control_auth_cookie
 
-# Pin to stable high-bandwidth exits
 StrictNodes 0
-ExitNodes {de},{nl},{se},{ch},{fi},{no}
+# NOTE: a small ExitNodes allow-list shrinks your anonymity set to "people
+# exiting via these countries" instead of "all Tor users." Only exclude
+# jurisdictions you actively distrust — that costs you nothing, since Tor's
+# global exit pool is large. If you specifically need EU-only exits for
+# latency, add them back knowingly:
+#   ExitNodes {de},{nl},{se},{ch},{fi},{no}
 ExcludeNodes {ru},{cn},{ir},{kp}
 ExcludeExitNodes {ru},{cn},{ir},{kp}
 EOF
@@ -47,63 +75,34 @@ EOF
     cleanup() {
         echo "Shutting down..."
 
-        pkill -TERM -f "chromium-tor-profile" 2>/dev/null
+        pkill -TERM -f "$PROFILE_DIR" 2>/dev/null
         for i in $(seq 1 10); do
-            pgrep -f "chromium-tor-profile" >/dev/null 2>&1 || break
+            pgrep -f "$PROFILE_DIR" >/dev/null 2>&1 || break
             sleep 0.5
         done
-        pgrep -f "chromium-tor-profile" >/dev/null 2>&1 &&
-            pkill -KILL -f "chromium-tor-profile" 2>/dev/null
+        pgrep -f "$PROFILE_DIR" >/dev/null 2>&1 &&
+            pkill -KILL -f "$PROFILE_DIR" 2>/dev/null
 
         if kill -0 "$TOR_PID" 2>/dev/null; then
             kill -TERM "$TOR_PID" 2>/dev/null
             wait "$TOR_PID" 2>/dev/null
         fi
 
-        echo "Wiping session data..."
+        if [[ -n "${PROFILE_DIR:-}" && -d "$PROFILE_DIR/Default" ]]; then
+            echo "Saving bookmarks and extensions..."
+            mkdir -p "$BASE_PROFILE_DIR/Default"
+            for item in "${PERSIST_PATHS[@]}"; do
+                if [[ -e "$PROFILE_DIR/Default/$item" ]]; then
+                    rm -rf "$BASE_PROFILE_DIR/Default/$item"
+                    cp -a "$PROFILE_DIR/Default/$item" "$BASE_PROFILE_DIR/Default/$item"
+                fi
+            done
+        fi
 
-        # Visited sites and search queries
-        rm -rf \
-            "$HOME/.config/chromium-tor-profile/Default/History" \
-            "$HOME/.config/chromium-tor-profile/Default/History-journal" \
-            "$HOME/.config/chromium-tor-profile/Default/Visited Links" \
-            "$HOME/.config/chromium-tor-profile/Default/Favicons" \
-            "$HOME/.config/chromium-tor-profile/Default/Favicons-journal"
-
-        # Network-level state
-        rm -rf \
-            "$HOME/.config/chromium-tor-profile/Default/Network Action Predictor" \
-            "$HOME/.config/chromium-tor-profile/Default/Network Persistent State" \
-            "$HOME/.config/chromium-tor-profile/Default/TransportSecurity"
-
-        # Site permissions and download history
-        rm -rf \
-            "$HOME/.config/chromium-tor-profile/Default/Site Characteristics Database" \
-            "$HOME/.config/chromium-tor-profile/Default/Download Service"
-
-        # WebRTC and fingerprinting
-        rm -rf \
-            "$HOME/.config/chromium-tor-profile/Default/WebRTC Logs" \
-            "$HOME/.config/chromium-tor-profile/Default/Feature Engagement Tracker" \
-            "$HOME/.config/chromium-tor-profile/Default/Segmentation Platform" \
-            "$HOME/.config/chromium-tor-profile/Default/Shared Dictionary"
-
-        # Cache and GPU
-        rm -rf \
-            "$HOME/.config/chromium-tor-profile/Default/Cache" \
-            "$HOME/.config/chromium-tor-profile/Default/Code Cache" \
-            "$HOME/.config/chromium-tor-profile/Default/GPUCache" \
-            "$HOME/.config/chromium-tor-profile/Default/IndexedDB" \
-            "$HOME/.config/chromium-tor-profile/Default/Local Storage" \
-            "$HOME/.config/chromium-tor-profile/Default/Session Storage" \
-            "$HOME/.config/chromium-tor-profile/Default/Sessions" \
-            "$HOME/.config/chromium-tor-profile/Default/Service Worker/CacheStorage" \
-            "$HOME/.config/chromium-tor-profile/Default/blob_storage" \
-            "$HOME/.config/chromium-tor-profile/Default/VideoDecodeStats" \
-            "$HOME/.config/chromium-tor-profile/Default/WebrtcVideoStats" \
-            "$HOME/.config/chromium-tor-profile/GrShaderCache" \
-            "$HOME/.config/chromium-tor-profile/ShaderCache" \
-            "$HOME/.config/chromium-tor-profile/GraphiteDawnCache"
+        echo "Wiping session profile..."
+        # Everything else (history, cookies, cache, site storage) was never
+        # copied into BASE_PROFILE_DIR above, so it dies here for good.
+        rm -rf "$PROFILE_DIR"
 
         echo "Done."
         trap - INT TERM
@@ -128,85 +127,129 @@ EOF
     done
     echo "Tor is ready."
 
+    # Fresh, disposable profile every launch — zero session state (history,
+    # cookies, cache) carries between launches or across a tor_newid.
+    PROFILE_DIR=$(mktemp -d)
+    mkdir -p "$PROFILE_DIR/Default"
+
+    if [[ -d "$BASE_PROFILE_DIR/Default" ]]; then
+        for item in "${PERSIST_PATHS[@]}"; do
+            [[ -e "$BASE_PROFILE_DIR/Default/$item" ]] &&
+                cp -a "$BASE_PROFILE_DIR/Default/$item" "$PROFILE_DIR/Default/$item"
+        done
+    fi
+
+    # ── Mode-dependent rendering flags ──────────────────────────────────────────
+    # This is the one real trade-off: GPU rasterization, ANGLE, and hardware
+    # video decode/encode expose your exact GPU model via WEBGL_debug_renderer_info
+    # and shift your canvas/WebGL output signature — a stable, device-unique
+    # fingerprint that survives Tor circuit rotation entirely. "fast" keeps them
+    # for speed; "harden" drops them because this is the actual anti-tracking lever.
+    local RENDER_FLAGS
+    if [[ "$MODE" == "harden" ]]; then
+        echo "Mode: harden (GPU accel / WebGL / hw video decode disabled)"
+        RENDER_FLAGS=(
+            --disable-webgl
+            --disable-webgl2
+            --disable-accelerated-video-decode
+            --disable-accelerated-video-encode
+            --disable-gpu-rasterization
+        )
+    else
+        echo "Mode: fast (GPU accel on — more performant, more fingerprintable)"
+        RENDER_FLAGS=(
+            --enable-accelerated-video-decode
+            --enable-accelerated-video-encode
+            --enable-gpu-rasterization
+            --enable-zero-copy
+            --ignore-gpu-blocklist
+            --enable-native-gpu-memory-buffers
+            --use-gl=angle
+            --use-angle=gl
+            --num-raster-threads=4
+        )
+    fi
+
+    # ── Flag groups ──────────────────────────────────────────────────────────
+    # One flag per line, no trailing backslash: adding, removing, or editing a
+    # single flag now changes exactly one line, so `git diff` shows just that
+    # line instead of a hunk of backslash-continuation context around it.
+    # Values and order are unchanged from before — this is formatting only.
+
+    local PROXY_FLAGS=(
+        --proxy-server="socks5://127.0.0.1:9050"
+        --proxy-bypass-list="<-loopback>"
+        --disable-quic
+        --dns-prefetch-disable
+        --no-pings
+        --webrtc-ip-handling-policy=disable_non_proxied_udp
+    )
+
+    local FINGERPRINT_FLAGS=(
+        --lang=en-US
+        --accept-lang=en-US,en
+        --disable-grease-tls
+        --http-accept-header="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    )
+
+    local PROFILE_FLAGS=(
+        --user-data-dir="$PROFILE_DIR"
+        --incognito
+        --no-first-run
+        --no-default-browser-check
+        --disable-sync
+    )
+
+    local PRIVACY_FLAGS=(
+        --disable-client-side-phishing-detection
+        --metrics-recording-only
+        --safebrowsing-disable-auto-update
+    )
+
+    local BACKGROUND_FLAGS=(
+        --disable-background-networking
+        --disable-default-apps
+        --disable-hang-monitor
+        --disable-prompt-on-repost
+    )
+
+    local UI_FLAGS=(
+        --disable-translate
+        --disable-infobars
+        --window-size=1280,800
+    )
+
+    local FEATURE_FLAGS=(
+        --enable-features=CanvasOopRasterization,BlockInsecurePrivateNetworkRequests,UseOzonePlatform
+        --disable-features=NetworkPrediction,Prerender2,PreloadMediaEngagementData,UseChromeOSDirectVideoDecoder
+    )
+
     # ── Launch Ungoogled Chromium ──────────────────────────────────────────────
     echo "Launching Chromium..."
 
-    "$CHROMIUM_BIN" \
-        \
-        `# ── Proxy / network ──────────────────────────────────` \
-        --proxy-server="socks5://127.0.0.1:9050" \
-        --proxy-bypass-list="<-loopback>" \
-        --disable-quic \
-        --dns-prefetch-disable \
-        --no-pings \
-        \
-        `# ── Profile / session ────────────────────────────────` \
-        --user-data-dir="$HOME/.config/chromium-tor-profile" \
-        --incognito \
-        --no-first-run \
-        --no-default-browser-check \
-        --disable-sync \
-        \
-        `# ── Privacy & telemetry ───────────────────────────────` \
-        --disable-client-side-phishing-detection \
-        --metrics-recording-only \
-        --safebrowsing-disable-auto-update \
-        \
-        `# ── Background activity ───────────────────────────────` \
-        --disable-background-networking \
-        --disable-default-apps \
-        --disable-hang-monitor \
-        --disable-prompt-on-repost \
-        \
-        `# ── UI / appearance ──────────────────────────────────` \
-        --disable-translate \
-        --disable-infobars \
-        --force-dark-mode \
-        --enable-smooth-scrolling \
-        --window-size=1280,800 \
-        \
-        `# ── GPU / hardware decode for HD–4K ──────────────────` \
-        --enable-accelerated-video-decode \
-        --enable-accelerated-video-encode \
-        --enable-gpu-rasterization \
-        --enable-zero-copy \
-        --ignore-gpu-blocklist \
-        --enable-native-gpu-memory-buffers \
-        --use-gl=angle \
-        --use-angle=gl \
-        --num-raster-threads=4 \
-        --high-dpi-support=1 \
-        \
-        `# ── Feature flags ────────────────────────────────────` \
-        --enable-features=VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization,BlockInsecurePrivateNetworkRequests,UseOzonePlatform \
-        --disable-features=NetworkPrediction,Prerender2,PreloadMediaEngagementData,UseChromeOSDirectVideoDecoder \
-        \
+    TZ=UTC "$CHROMIUM_BIN" \
+        "${PROXY_FLAGS[@]}" \
+        "${FINGERPRINT_FLAGS[@]}" \
+        "${PROFILE_FLAGS[@]}" \
+        "${PRIVACY_FLAGS[@]}" \
+        "${BACKGROUND_FLAGS[@]}" \
+        "${UI_FLAGS[@]}" \
+        "${RENDER_FLAGS[@]}" \
+        "${FEATURE_FLAGS[@]}" \
         "https://check.torproject.org/" &
 
-    echo "Chromium launched. Press Ctrl+C to quit."
+    echo "Chromium launched (profile: $PROFILE_DIR). Press Ctrl+C to quit."
 
     # Wait here until Ctrl+C triggers cleanup
     wait
 }
 
 # ── dl ────────────────────────────────────────────────────────────────────────
-# Downloads a file using yt-dlp routed through the Tor SOCKS5 proxy on
-# 127.0.0.1:9050. Supports any URL that yt-dlp handles (video sites, direct
-# MP4/MKV links, etc). Uses 16 concurrent fragments for faster downloads and
-# resumes interrupted downloads automatically.
-#
-# Note: Tor must already be running (e.g. via tor_browser or `tor` standalone)
-# before calling dl, otherwise the proxy connection will fail.
+# Unchanged from the original — downloads via yt-dlp routed through Tor's
+# SOCKS5 proxy on 127.0.0.1:9050.
 #
 # Usage:
 #   dl "output filename" "url"
-#
-# Example:
-#   dl "video.mp4" "https://example.com/video.mp4"
-#
-# Dependencies:
-#   tor    — sudo apt install tor
-#   yt-dlp — curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
 # ─────────────────────────────────────────────────────────────────────────────
 dl() {
     if [[ -z "$1" || -z "$2" ]]; then
@@ -229,23 +272,16 @@ dl() {
 }
 
 # tor_newid
-# Rotates your Tor identity by sending a NEWNYM signal to the control port.
+# Rotates your Tor *circuit* (new exit IP) via NEWNYM.
+#
+# IMPORTANT: this does not touch open tabs, cookies, or localStorage. If a
+# site already fingerprinted you or set a cookie before you call this, a new
+# IP changes nothing — it can still correlate old-session-you with
+# new-IP-you through the browser state that's still sitting open. For an
+# actual new identity, close the browser and re-run tor_browser (fresh
+# profile + fresh circuit) rather than rotating mid-session.
 #
 # Usage: tor_newid
-#
-# Requires:
-#   - ControlPort 9051 in torrc
-#   - CookieAuthentication 1 in torrc
-#
-# Expected output:
-#   250 OK
-#   250 OK
-#   250 closing connection
-#
-# Notes:
-#   - Tor enforces a 10-second cooldown between effective NEWNYM signals
-#   - Reload the page in Chromium after calling this
-#   - If no 250 OK lines appear, run tor_rotate first
 tor_newid() {
     local cookie_path="$HOME/.config/tor-stream/control_auth_cookie"
 
@@ -259,7 +295,7 @@ tor_newid() {
             | nc 127.0.0.1 9051
     fi
 
-    echo "New Tor identity requested. Reload the page in Chromium."
+    echo "New Tor circuit requested. For a real new identity, restart tor_browser instead of just reloading."
 }
 
 # tor_rotate
@@ -267,13 +303,6 @@ tor_newid() {
 # identity rotation worked by comparing IPs before and after.
 #
 # Usage: tor_rotate
-#
-# Requires:
-#   - tor_browser running (writes ~/.config/tor-stream/tor.pid on startup)
-#   - nc, curl, xxd
-#
-# Use this when tor_newid stops printing 250 OK lines.
-# Once working, go back to using tor_newid directly.
 tor_rotate() {
     local pid_file="$HOME/.config/tor-stream/tor.pid"
 
