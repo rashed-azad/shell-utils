@@ -31,31 +31,13 @@ tor_browser() {
     # so and I'll build that instead.
     cat >"$TOR_CONFIG" <<EOF
 # Circuit performance
-NumEntryGuards 4
-NumDirectoryGuards 3
-GuardLifetime 2 months
-MaxCircuitDirtiness 300
-NewCircuitPeriod 60
-CircuitBuildTimeout 10
 LearnCircuitBuildTimeout 1
 
-# Stability — rotate away from slow circuits quickly
-MaxClientCircuitsPending 32
-CircuitStreamTimeout 15
-SocksTimeout 15
+# Padding against traffic analysis
 ConnectionPadding 1
 
-# Bandwidth (0 = unlimited)
-RelayBandwidthRate 0
-RelayBandwidthBurst 0
-PerConnBWRate 0
-PerConnBWBurst 0
-
-# Scheduler tuning
-KISTSchedRunInterval 10
-
 # Isolated SOCKS port
-SocksPort 9050 IsolateDestAddr IsolateDestPort
+SocksPort 9050 IsolateDestAddr
 ControlPort 9051
 CookieAuthentication 1
 CookieAuthFile $HOME/.config/tor-stream/control_auth_cookie
@@ -68,7 +50,8 @@ StrictNodes 0
 # latency, add them back knowingly:
 #   ExitNodes {de},{nl},{se},{ch},{fi},{no}
 ExcludeNodes {ru},{cn},{ir},{kp}
-ExcludeExitNodes {ru},{cn},{ir},{kp}
+# (excludes these countries from every hop — guard, middle, and exit —
+# so a separate ExcludeExitNodes line would only repeat the same list)
 EOF
 
     # ── Graceful shutdown ──────────────────────────────────────────────────────
@@ -129,7 +112,11 @@ EOF
 
     # Fresh, disposable profile every launch — zero session state (history,
     # cookies, cache) carries between launches or across a tor_newid.
-    PROFILE_DIR=$(mktemp -d)
+    # tmpfs (/dev/shm) keeps cache/cookies/IndexedDB in RAM instead of on
+    # disk — faster, and nothing to wipe from disk because nothing was
+    # written there. Falls back to normal disk temp storage if /dev/shm
+    # is missing or not writable (e.g. some containers).
+    PROFILE_DIR=$(mktemp -d -p /dev/shm 2>/dev/null) || PROFILE_DIR=$(mktemp -d)
     mkdir -p "$PROFILE_DIR/Default"
 
     if [[ -d "$BASE_PROFILE_DIR/Default" ]]; then
@@ -188,7 +175,6 @@ EOF
     local FINGERPRINT_FLAGS=(
         --lang=en-US
         --accept-lang=en-US,en
-        --disable-grease-tls
         --http-accept-header="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     )
 
@@ -220,8 +206,8 @@ EOF
     )
 
     local FEATURE_FLAGS=(
-        --enable-features=CanvasOopRasterization,BlockInsecurePrivateNetworkRequests,UseOzonePlatform
-        --disable-features=NetworkPrediction,Prerender2,PreloadMediaEngagementData,UseChromeOSDirectVideoDecoder
+        --enable-features=BlockInsecurePrivateNetworkRequests
+        --disable-features=NetworkPrediction,Prerender2,PreloadMediaEngagementData
     )
 
     # ── Launch Ungoogled Chromium ──────────────────────────────────────────────
@@ -325,7 +311,7 @@ tor_rotate() {
     fi
     echo "Control port open."
 
-    echo "Current IP:"
+    printf "Current IP: "
     curl -s --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip && echo
 
     echo "Rotating identity..."
@@ -333,6 +319,6 @@ tor_rotate() {
 
     sleep 1
 
-    echo "New IP:"
+    printf "New IP:     "
     curl -s --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/api/ip && echo
 }
