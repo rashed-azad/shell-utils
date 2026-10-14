@@ -341,7 +341,7 @@ clean_debian() {
 # the user experience with colored output and better formatting.
 
 # Enhanced ls with long format and human-readable sizes
-alias ll="ls -l"
+alias ll="ls -lh"
 
 # Colored grep for better readability
 alias grep="grep --color=auto"
