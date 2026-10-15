@@ -4,7 +4,7 @@
 #   tor_browser            # fast profile — GPU/WebGL/hw-decode ON
 #   tor_browser harden     # anonymity-hardened — GPU/WebGL/hw-decode OFF
 
-eval "CHROMIUM_BIN=$(alias gBrowser | cut -d"'" -f2)"
+eval "CHROMIUM_BIN=$(alias gBrowser 2>/dev/null | cut -d"'" -f2)"
 
 tor_browser() {
     local MODE="${1:-fast}"
