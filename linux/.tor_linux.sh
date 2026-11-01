@@ -4,7 +4,7 @@
 #   tor_browser            # fast profile — GPU/WebGL/hw-decode ON
 #   tor_browser harden     # anonymity-hardened — GPU/WebGL/hw-decode OFF
 
-eval "CHROMIUM_BIN=$(alias gBrowser 2>/dev/null | cut -d"'" -f2)"
+eval "BROWSER_BIN=$(alias browser 2>/dev/null | cut -d"'" -f2)"
 
 tor_browser() {
     local MODE="${1:-fast}"
@@ -22,7 +22,7 @@ tor_browser() {
         Extensions
         "Local Extension Settings"
         Preferences        # extension install/enabled state lives here — without
-        "Secure Preferences" # it Chromium won't recognize the Extensions/ folder
+        "Secure Preferences" # it Browser won't recognize the Extensions/ folder
     )
     # Note: Preferences also holds small unrelated bits (window size, per-site
     # permission grants). Persisting it is what makes extensions register
@@ -37,7 +37,7 @@ LearnCircuitBuildTimeout 1
 ConnectionPadding 1
 
 # Isolated SOCKS port
-SocksPort 9050 IsolateDestAddr
+SocksPort 9050
 ControlPort 9051
 CookieAuthentication 1
 CookieAuthFile $HOME/.config/tor-stream/control_auth_cookie
@@ -210,10 +210,10 @@ EOF
         --disable-features=NetworkPrediction,Prerender2,PreloadMediaEngagementData
     )
 
-    # ── Launch Ungoogled Chromium ──────────────────────────────────────────────
-    echo "Launching Chromium..."
+    # ── Launch browser ──────────────────────────────────────────────
+    echo "Launching Browser..."
 
-    TZ=UTC "$CHROMIUM_BIN" \
+    TZ=UTC "$BROWSER_BIN" \
         "${PROXY_FLAGS[@]}" \
         "${FINGERPRINT_FLAGS[@]}" \
         "${PROFILE_FLAGS[@]}" \
@@ -224,7 +224,7 @@ EOF
         "${FEATURE_FLAGS[@]}" \
         "https://check.torproject.org/" &
 
-    echo "Chromium launched (profile: $PROFILE_DIR). Press Ctrl+C to quit."
+    echo "Browser launched (profile: $PROFILE_DIR). Press Ctrl+C to quit."
 
     # Wait here until Ctrl+C triggers cleanup
     wait
