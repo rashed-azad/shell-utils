@@ -8,6 +8,7 @@ eval "BROWSER_BIN=$(alias browser 2>/dev/null | cut -d"'" -f2)"
 
 tor_browser() {
     local MODE="${1:-fast}"
+    PROFILE_DIR=""
     TOR_CONFIG="$HOME/.config/tor-stream/torrc"
     mkdir -p "$(dirname "$TOR_CONFIG")"
 
@@ -58,13 +59,18 @@ EOF
     cleanup() {
         echo "Shutting down..."
 
-        pkill -TERM -f "$PROFILE_DIR" 2>/dev/null
-        for i in $(seq 1 10); do
-            pgrep -f "$PROFILE_DIR" >/dev/null 2>&1 || break
-            sleep 0.5
-        done
-        pgrep -f "$PROFILE_DIR" >/dev/null 2>&1 &&
-            pkill -KILL -f "$PROFILE_DIR" 2>/dev/null
+        # Guard: an empty pattern makes pkill -f match EVERY process, so only
+        # stop the browser if the profile dir was actually created already
+        # (Ctrl+C during "Waiting for Tor..." happens before that).
+        if [[ -n "${PROFILE_DIR:-}" ]]; then
+            pkill -TERM -f "$PROFILE_DIR" 2>/dev/null
+            for i in $(seq 1 10); do
+                pgrep -f "$PROFILE_DIR" >/dev/null 2>&1 || break
+                sleep 0.5
+            done
+            pgrep -f "$PROFILE_DIR" >/dev/null 2>&1 &&
+                pkill -KILL -f "$PROFILE_DIR" 2>/dev/null
+        fi
 
         if kill -0 "$TOR_PID" 2>/dev/null; then
             kill -TERM "$TOR_PID" 2>/dev/null

@@ -289,48 +289,35 @@ xcp() {
 # SYSTEM MAINTENANCE TOOLS
 # =============================================================================
 
-# Comprehensive Debian/Ubuntu system cleanup
-# 
+# Safe Debian/Ubuntu system cleanup
+#
 # USAGE:
 #   clean_debian
 #
 # DESCRIPTION:
-#   This function performs a comprehensive cleanup of a Debian/Ubuntu system
-#   to free up disk space and remove unnecessary packages. It's a one-command
-#   solution for system maintenance.
+#   Frees disk space by removing unused packages, the package cache,
+#   old kernels and old system logs.
 #
 # CLEANUP ACTIONS:
-#   1. Remove unnecessary packages (autoremove)
-#   2. Purge packages and their configuration files
-#   3. Clean package cache and downloaded files
-#   4. Remove old kernel images (keeping current and one previous)
-#   5. Clear log files (truncate to 0 bytes)
-#   6. Remove unused locale files
-#   7. Remove orphaned packages
+#   1. Remove unused packages and their config files (autoremove --purge)
+#   2. Clear the downloaded package cache (clean)
+#   3. Remove old kernels (keeps the running kernel and the newest other one)
+#   4. Shrink the systemd journal to the last 7 days
 #
 # SAFETY:
-#   - Keeps current kernel and one previous version
-#   - Only removes packages that are safe to remove
-#   - Provides feedback throughout the process
-#   - Uses standard apt commands
+#   - Never removes the running kernel
+#   - Always keeps at least one fallback kernel
+#   - Does not touch the linux-image-amd64 meta-package (kernel updates continue)
+#   - Kernel removal asks for confirmation (no -y)
+#   - Uses standard apt and journalctl commands only
 #
 # WARNING:
-#   This function requires sudo privileges and will modify system packages.
-#   Run this only when you understand what it does.
+#   Needs sudo. Stops at the first failed step (&&).
 clean_debian() {
-  # Execute all cleanup commands in sequence
-  # Each command is chained with && to stop on any failure
-  sudo apt-get autoremove -y && \
-  sudo apt-get purge -y && \
   sudo apt-get autoremove --purge -y && \
   sudo apt-get clean && \
-  sudo apt-get autoclean && \
-  sudo apt-get remove --purge $(dpkg --list | grep linux-image | awk '{ if ($1 == "ii") print $2}' | grep -v $(uname -r | cut -d"-" -f1,2) | head -n -1) && \
-  sudo find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; && \
-  sudo apt-get install -y localepurge && \
-  sudo localepurge && \
-  sudo apt-get install -y deborphan && \
-  sudo deborphan | xargs sudo apt-get -y remove --purge && \
+  sudo apt-get remove --purge $(dpkg --list 'linux-image-[0-9]*' | awk '/^ii/{print $2}' | grep -v "$(uname -r)" | sort -V | head -n -1) && \
+  sudo journalctl --vacuum-time=7d && \
   echo "System cleanup complete!"
 }
 
