@@ -285,6 +285,45 @@ xcp() {
   fi
 }
 
+# Convert iPhone photos/videos so VS Code can preview them,
+# then delete the originals.
+#
+# USAGE:
+#   media2vscode [folder]     # default: current folder
+#
+# WHAT IT DOES:
+#   .heic -> .webp  (quality 90: about the same size as the HEIC, looks identical)
+#   .mov  -> .webm  (VP9 + Opus, visually lossless, keeps 10-bit color)
+#   An original is deleted only if its conversion succeeded,
+#   so running it again retries whatever is left.
+#
+# NEEDS:
+#   ffmpeg, ImageMagick (convert)
+#                 sudo apt-get install --no-install-recommends ffmpeg imagemagick
+#   heif-convert  1.17 or newer (Debian 12's 1.15 can't read new iPhone photos).
+#                 Here: Debian backports 1.19 unpacked in ~/.local/opt/libheif,
+#                 started by the script ~/.local/bin/heif-convert.
+media2vscode() {
+  local dir="${1:-.}" f
+
+  for f in "$dir"/*.heic "$dir"/*.HEIC; do
+    [ -e "$f" ] || continue          # skip if no file matched
+    echo "$f"
+    # HEIC -> temporary PNG (heif-convert) -> WebP (ImageMagick)
+    heif-convert --quiet "$f" "${f%.*}.png" &&
+      convert "${f%.*}.png" -quality 90 "${f%.*}.webp" &&
+      rm "$f" "${f%.*}.png"
+  done
+
+  for f in "$dir"/*.mov "$dir"/*.MOV; do
+    [ -e "$f" ] || continue
+    echo "$f"
+    ffmpeg -nostdin -y -v error -stats -i "$f" \
+      -c:v libvpx-vp9 -crf 15 -b:v 0 -row-mt 1 \
+      -c:a libopus -b:a 192k "${f%.*}.webm" && rm "$f"
+  done
+}
+
 # =============================================================================
 # SYSTEM MAINTENANCE TOOLS
 # =============================================================================
